@@ -1,0 +1,276 @@
+import React, { useState, useRef } from 'react';
+import { Copy, Check, RotateCcw, Undo, Bold, Italic, Underline } from 'lucide-react';
+
+export default function LinkedInFormatter() {
+  const [inputText, setInputText] = useState('');
+  const [formatting, setFormatting] = useState({});
+  const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState([]);
+  const inputRef = useRef(null);
+
+  // Unicode character mappings
+  const boldMap = {
+    'A': '𝐀', 'B': '𝐁', 'C': '𝐂', 'D': '𝐃', 'E': '𝐄', 'F': '𝐅', 'G': '𝐆', 'H': '𝐇', 'I': '𝐈', 'J': '𝐉',
+    'K': '𝐊', 'L': '𝐋', 'M': '𝐌', 'N': '𝐍', 'O': '𝐎', 'P': '𝐏', 'Q': '𝐐', 'R': '𝐑', 'S': '𝐒', 'T': '𝐓',
+    'U': '𝐔', 'V': '𝐕', 'W': '𝐖', 'X': '𝐗', 'Y': '𝐘', 'Z': '𝐙',
+    'a': '𝐚', 'b': '𝐛', 'c': '𝐜', 'd': '𝐝', 'e': '𝐞', 'f': '𝐟', 'g': '𝐠', 'h': '𝐡', 'i': '𝐢', 'j': '𝐣',
+    'k': '𝐤', 'l': '𝐥', 'm': '𝐦', 'n': '𝐧', 'o': '𝐨', 'p': '𝐩', 'q': '𝐪', 'r': '𝐫', 's': '𝐬', 't': '𝐭',
+    'u': '𝐮', 'v': '𝐯', 'w': '𝐰', 'x': '𝐱', 'y': '𝐲', 'z': '𝐳',
+    '0': '𝟎', '1': '𝟏', '2': '𝟐', '3': '𝟑', '4': '𝟒', '5': '𝟓', '6': '𝟔', '7': '𝟕', '8': '𝟖', '9': '𝟗'
+  };
+
+  const italicMap = {
+    'A': '𝐴', 'B': '𝐵', 'C': '𝐶', 'D': '𝐷', 'E': '𝐸', 'F': '𝐹', 'G': '𝐺', 'H': '𝐻', 'I': '𝐼', 'J': '𝐽',
+    'K': '𝐾', 'L': '𝐿', 'M': '𝑀', 'N': '𝑁', 'O': '𝑂', 'P': '𝑃', 'Q': '𝑄', 'R': '𝑅', 'S': '𝑆', 'T': '𝑇',
+    'U': '𝑈', 'V': '𝑉', 'W': '𝑊', 'X': '𝑋', 'Y': '𝑌', 'Z': '𝑍',
+    'a': '𝑎', 'b': '𝑏', 'c': '𝑐', 'd': '𝑑', 'e': '𝑒', 'f': '𝑓', 'g': '𝑔', 'h': 'ℎ', 'i': '𝑖', 'j': '𝑗',
+    'k': '𝑘', 'l': '𝑙', 'm': '𝑚', 'n': '𝑛', 'o': '𝑜', 'p': '𝑝', 'q': '𝑞', 'r': '𝑟', 's': '𝑠', 't': '𝑡',
+    'u': '𝑢', 'v': '𝑣', 'w': '𝑤', 'x': '𝑥', 'y': '𝑦', 'z': '𝑧'
+  };
+
+  const applyFormatting = (type) => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    
+    if (start === end) return; // No selection
+
+    // Save current state to history before making changes
+    setHistory([...history, { text: inputText, formatting: { ...formatting } }]);
+
+    const newFormatting = { ...formatting };
+    
+    // Toggle formatting for selected range
+    for (let i = start; i < end; i++) {
+      if (!newFormatting[i]) {
+        newFormatting[i] = {};
+      }
+      newFormatting[i][type] = !newFormatting[i][type];
+    }
+    
+    setFormatting(newFormatting);
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    
+    const lastState = history[history.length - 1];
+    setInputText(lastState.text);
+    setFormatting(lastState.formatting);
+    setHistory(history.slice(0, -1));
+  };
+
+  const handleTextChange = (e) => {
+    // Save to history when text changes
+    if (inputText !== e.target.value) {
+      setHistory([...history, { text: inputText, formatting: { ...formatting } }]);
+    }
+    setInputText(e.target.value);
+    // Clear formatting for new characters beyond current length
+    if (e.target.value.length < inputText.length) {
+      const newFormatting = {};
+      Object.keys(formatting).forEach(key => {
+        if (parseInt(key) < e.target.value.length) {
+          newFormatting[key] = formatting[key];
+        }
+      });
+      setFormatting(newFormatting);
+    }
+  };
+
+  const convertToUnicode = () => {
+    let result = '';
+    
+    for (let i = 0; i < inputText.length; i++) {
+      let char = inputText[i];
+      const format = formatting[i] || {};
+      
+      // Apply bold
+      if (format.bold && boldMap[char]) {
+        char = boldMap[char];
+      }
+      
+      // Apply italic
+      if (format.italic && italicMap[char]) {
+        char = italicMap[char];
+      }
+      
+      result += char;
+      
+      // Apply underline (combining character)
+      if (format.underline && char.trim()) {
+        result += '\u0332'; // Combining low line
+      }
+    }
+    
+    return result;
+  };
+
+  const handleCopy = async () => {
+    const output = convertToUnicode();
+    await navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleClear = () => {
+    setInputText('');
+    setFormatting({});
+    setHistory([]);
+  };
+
+  const outputText = convertToUnicode();
+  const charCount = inputText.length;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 p-6">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-3 tracking-tight">
+            LinkedIn Text Formatter
+          </h1>
+          <p className="text-lg text-gray-600">
+            Transform your text with bold, italic, and underline formatting for LinkedIn
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          
+          {/* Input Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-lg font-bold text-gray-800">
+                ✍️ Write Your Text
+              </label>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                  {charCount} characters
+                </span>
+              </div>
+            </div>
+            
+            {/* Formatting Toolbar */}
+            <div className="flex gap-2 mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <button
+                onClick={() => applyFormatting('bold')}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 hover:text-blue-700 font-semibold transition-all shadow-sm"
+                title="Bold (select text first)"
+              >
+                <Bold size={18} />
+                Bold
+              </button>
+              <button
+                onClick={() => applyFormatting('italic')}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 hover:text-blue-700 italic transition-all shadow-sm"
+                title="Italic (select text first)"
+              >
+                <Italic size={18} />
+                Italic
+              </button>
+              <button
+                onClick={() => applyFormatting('underline')}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:border-blue-500 hover:bg-blue-50 hover:text-blue-700 transition-all shadow-sm"
+                title="Underline (select text first)"
+              >
+                <Underline size={18} />
+                Underline
+              </button>
+              
+              <div className="flex-1"></div>
+              
+              <button
+                onClick={handleUndo}
+                disabled={history.length === 0}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:border-purple-500 hover:bg-purple-50 hover:text-purple-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-gray-300 disabled:hover:bg-white disabled:hover:text-gray-700 transition-all shadow-sm"
+                title="Undo last action"
+              >
+                <Undo size={18} />
+                Undo
+              </button>
+              
+              <button
+                onClick={handleClear}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-red-300 text-red-600 rounded-lg hover:bg-red-50 hover:border-red-500 transition-all shadow-sm"
+                title="Clear all"
+              >
+                <RotateCcw size={18} />
+                Clear
+              </button>
+            </div>
+            
+            <textarea
+              ref={inputRef}
+              value={inputText}
+              onChange={handleTextChange}
+              className="w-full h-56 p-4 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 focus:outline-none resize-none font-sans text-base leading-relaxed transition-all"
+              placeholder="Start typing or paste your text here...
+
+Select any text and use the formatting buttons above to style it!"
+            />
+          </div>
+
+          {/* Output Section */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-lg font-bold text-gray-800">
+                📋 LinkedIn-Ready Output
+              </label>
+              <button
+                onClick={handleCopy}
+                disabled={!outputText}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-semibold transition-all shadow-lg ${
+                  copied 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 disabled:opacity-40 disabled:cursor-not-allowed'
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <Check size={18} />
+                    Copied to Clipboard!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={18} />
+                    Copy to Clipboard
+                  </>
+                )}
+              </button>
+            </div>
+            
+            <div className="w-full min-h-56 p-4 bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300 rounded-xl font-sans text-base whitespace-pre-wrap break-words leading-relaxed">
+              {outputText || (
+                <span className="text-gray-400 italic">
+                  Your formatted text will appear here. Copy and paste it directly into LinkedIn!
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Instructions */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-5 rounded-lg">
+            <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+              <span className="text-xl">💡</span> How to Use
+            </h3>
+            <ol className="text-sm text-gray-700 space-y-1 ml-6 list-decimal">
+              <li>Type or paste your text in the input box above</li>
+              <li>Select the text you want to format</li>
+              <li>Click Bold, Italic, or Underline (you can combine multiple formats!)</li>
+              <li>Copy the formatted output and paste it into LinkedIn</li>
+              <li>Use Undo to reverse your last action, or Clear to start over</li>
+            </ol>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-6 text-sm text-gray-600">
+          <div className="mb-2">Built for productivity • No sign-up • No fees • Works offline</div>
+          <div className="text-xs text-gray-500">Copyright © Dr. Arka Sarkar 2026</div>
+        </div>
+      </div>
+    </div>
+  );
+}
